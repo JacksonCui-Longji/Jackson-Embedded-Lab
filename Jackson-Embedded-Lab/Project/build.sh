@@ -14,6 +14,15 @@ echo ">>> Build 目录   : ${BUILD_DIR}"
 echo ">>> Output 目录  : ${OUTPUT_DIR}"
 echo ">>> Build 类型   : ${BUILD_TYPE}"
 
+if [[ "${1:-}" == "clean" ]]; then
+    echo ">>> 清理 Build 目录 : ${BUILD_DIR}"
+    rm -rf "${BUILD_DIR}"
+    echo ">>> 清理 Output 目录: ${OUTPUT_DIR}"
+    rm -rf "${OUTPUT_DIR}"
+    echo ">>> 清理完成"
+    exit 0
+fi
+
 mkdir -p "${BUILD_DIR}"
 mkdir -p "${OUTPUT_DIR}"
 
