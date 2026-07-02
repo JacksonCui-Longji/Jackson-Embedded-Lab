@@ -2,7 +2,7 @@
 
 #define CRC32_POLYNOMIAL 0x04C11DB7u
 #define CRC_REGISTER_INIT 0xffffffffu
-
+#define CRC_REGISTER_XOR_OUT 0xffffffffu
 static uint8_t u8ReverseBIT_8(uint8_t inData)
 {
     inData = ((inData >> 1)&0x55) | ((inData&0x55) << 1);
@@ -11,7 +11,7 @@ static uint8_t u8ReverseBIT_8(uint8_t inData)
     return inData;
 }
 
-static uint32_t u8ReverseBIT_32(uint32_t inData)
+static uint32_t u32ReverseBIT_32(uint32_t inData)
 {
     inData = ((inData >> 1)&0x55555555u) | ((inData&0x55555555u) << 1);
     inData = ((inData >> 2)&0x33333333u) | ((inData&0x33333333u) << 2);
@@ -48,8 +48,9 @@ void u32CrcIeee8023_Excu(uint32_t *retCrc, uint8_t* inData, size_t len)
     
     for(uint32_t index = 0; index < len; index++)
     {
-        inData[index] = u8ReverseBIT_8(inData[index]);
-        *retCrc ^= (inData[index] << 24);
+        uint8_t tmp = inData[index];
+        tmp = u8ReverseBIT_8(tmp);
+        *retCrc ^= (tmp << 24);
 
         for(uint8_t j = 0; j < 8 ; j++)
         {
@@ -73,8 +74,8 @@ void u32CrcIeee8023_Final(uint32_t *retCrc)
         return;
     }
 
-    *retCrc = u8ReverseBIT_32(*retCrc);
-    *retCrc ^= 0xffffffffu;
+    *retCrc = u32ReverseBIT_32(*retCrc);
+    *retCrc ^= CRC_REGISTER_XOR_OUT;
 }
 
 uint32_t u32CrcIeee8023(uint8_t* inData, size_t len)
