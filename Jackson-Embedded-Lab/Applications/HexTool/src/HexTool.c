@@ -2,6 +2,7 @@
 #include "stdint.h"
 #include "stdio.h"
 #include "string.h"
+#include "CommonType.h"
 
 #define READ_LENGTH_MAX 0x08u
 #define DISPLAY_LENGTH_MAX ((READ_LENGTH_MAX*3)+1)
@@ -52,7 +53,7 @@ static size_t u8HexToolWrite_Update(uint8_t *inData, size_t len, uint8_t *output
         uint8_t tmp = ChrToHex(inData[index]);
         if(RET_NG == tmp)
         {
-            printf("Invalid input: %s, at index: %d skip it!\n", inData[index], index);
+            printf("Invalid input: %s, at index: %d skip it!\n", inData, index);
         }
         else
         {
@@ -140,6 +141,7 @@ uint8_t u8HexToolRead(uint8_t *inPath, size_t len)
         memset(ascii_cache, 0x00, READ_LENGTH_MAX+1);
         while(i_rc < actual_len)
         {
+            // this part is to transfer Hex to three characters, not a normal HEX to Char, and only support uppercase.
             uint8_t hi = read_cache[i_rc] / 16;
             uint8_t lo = read_cache[i_rc] % 16;
             display_cache[i_dc]   = (hi < 10) ? (hi + '0') : (hi - 10 + 'A');

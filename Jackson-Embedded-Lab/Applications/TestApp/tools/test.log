@@ -1,0 +1,11 @@
+2026-07-03 08:00:01 INFO  System Boot
+
+2026-07-03 08:00:02 INFO  Network Ready
+
+2026-07-03 08:00:03 WARN  CAN Timeout
+
+2026-07-03 08:00:05 ERROR SOME/IP Connection Lost
+
+2026-07-03 08:00:06 INFO  Retry Connection
+
+2026-07-03 08:00:10 ERROR CAN Bus Off
