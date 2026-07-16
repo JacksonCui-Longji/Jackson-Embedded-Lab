@@ -17,9 +17,10 @@
 
 
 typedef enum _CanType_{
-    CAN_ANALYZER_TYPE_CLASSICAL = 0x00,
-    CAN_ANALYZER_TYPE_EXTENDED = 0x01,
-    CAN_ANALYZER_TYPE_CAN_FD = 0x02,
+    CAN_ANALYZER_TYPE_CLASSICAL_STANDARD    = 0x00,
+    CAN_ANALYZER_TYPE_CLASSICAL_EXTENDED    = 0x01,
+    CAN_ANALYZER_TYPE_CAN_FD_STANDARD       = 0x02,
+    CAN_ANALYZER_TYPE_CAN_FD_EXTENDED       = 0x03,
 }CanType;
 
 typedef enum _CanDirection_{
@@ -46,6 +47,8 @@ typedef struct _CANAnalyzerInfo_
     CanDirection direction;
     CanRTRBit rtr;
     CanDLC dlc_len;
+    uint8_t brs;
+    uint8_t esi;
     uint8_t payload[CAN_ANALYZER_PAYLOAD_MAX_LEN];
 }CANAnalyzerInfo;
 

@@ -5,21 +5,10 @@
 
 // static uint8_t CaseFoldTable[256];
 
-void vdCANAnalyzerInit()
+void vdCANAnalyzerInit(ResultCallBackFunc callback)
 {
-    /*  CaseFoldTable maybe used later
-    for(int i = 0; i < 256; i++)
-    {
-        if((i >= 'A') && (i <= 'Z'))
-        {
-            CaseFoldTable[i] = i + ('a' - 'A');
-        }
-        else
-        {
-            CaseFoldTable[i] = i;
-        }
-    }
-    */
+    setCANInfoCallBack(callback);
+
 }
 
 void vdCANAnalyzeFile(uint8_t *path, size_t path_len)

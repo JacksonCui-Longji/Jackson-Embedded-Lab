@@ -3,7 +3,12 @@
 #include "stdlib.h"
 #include "string.h"
 
+// interface
+uint8_t setCANInfoCallBack(ResultCallBackFunc callback);
+
+// internal function
 static CANAnalyzerState TransmitStateTo(CANAnalyzerState nextstate, CANAnalyzerInfo *can_info, BufferMouse *mouse);
+static ResultCallBackFunc callbackfunc = NULL;
 
 // state machine main
 static uint8_t StateMachineMain(CANAnalyzerState state, CANAnalyzerInfo *can_info, BufferMouse *mouse);
@@ -17,9 +22,13 @@ static CANAnalyzerState TransDirectionState(CANAnalyzerInfo *can_info, BufferMou
 static CANAnalyzerState RTRCheckState(CANAnalyzerInfo *can_info, BufferMouse *mouse);
 static CANAnalyzerState DLCState(CANAnalyzerInfo *can_info, BufferMouse *mouse);
 static CANAnalyzerState PayloadState(CANAnalyzerInfo *can_info, BufferMouse *mouse);
-static CANAnalyzerState ErrorState(CANAnalyzerInfo *can_info, BufferMouse *mouse);
+static CANAnalyzerState BRSState(CANAnalyzerInfo *can_info, BufferMouse *mouse);
+static CANAnalyzerState ESIState(CANAnalyzerInfo *can_info, BufferMouse *mouse);
+// static CANAnalyzerState ErrorState(CANAnalyzerInfo *can_info, BufferMouse *mouse);
+// static CANAnalyzerState FinishState(CANAnalyzerInfo *can_info, BufferMouse *mouse);
 
 static const StateHandlerFunc statemap[] = {
+    [CAN_ANALYZER_STATE_ERROR]                = NULL                ,
     [CAN_ANALYZER_STATE_IDLE]                 = IdleState           ,
     [CAN_ANALYZER_STATE_TIMESTAMP]            = TimestampState      ,
     [CAN_ANALYZER_STATE_CHANNEL]              = ChannelState        ,
@@ -28,7 +37,8 @@ static const StateHandlerFunc statemap[] = {
     [CAN_ANALYZER_STATE_RTRCHECK]             = RTRCheckState       ,
     [CAN_ANALYZER_STATE_DLC]                  = DLCState            ,
     [CAN_ANALYZER_STATE_PAYLOAD]              = PayloadState        ,
-    [CAN_ANALYZER_STATE_ERROR]                = NULL                ,
+    [CAN_ANALYZER_STATE_BRS]                  = BRSState            , // CANFD
+    [CAN_ANALYZER_STATE_ESI]                  = ESIState            , // CANFD
     [CAN_ANALYZER_STATE_FINISH]               = NULL                ,
 };
 
@@ -37,7 +47,10 @@ static const uint8_t canfd_dlc_to_len[16] = {
     12, 16, 20, 24, 32, 48, 64      /* DLC 9~15，CAN FD专属映射 */
 };
 
-
+uint8_t setCANInfoCallBack(ResultCallBackFunc callback)
+{
+    callbackfunc = callback;
+}
 
 uint8_t wvdTransmitStateTo(CANAnalyzerState nextstate, CANAnalyzerInfo *can_info, BufferMouse *mouse)
 {
@@ -62,6 +75,10 @@ static uint8_t StateMachineMain(CANAnalyzerState state, CANAnalyzerInfo *can_inf
 
     if(CAN_ANALYZER_STATE_FINISH == nextstate)
     {
+        if(NULL != callbackfunc)
+        {
+            callbackfunc(*can_info);
+        }
         return RET_OK;
     }
     else
@@ -127,7 +144,7 @@ static int isCorrectFormatAndMoveBackward(uint8_t **cursor, uint8_t **last_curso
     else
     {
 
-        printf("no timestamp, ignore this item!\n");
+        // printf("no timestamp, ignore this item!\n");
         return total_len;
 
     }
@@ -139,8 +156,9 @@ static int isCorrectFormatAndMoveBackward(uint8_t **cursor, uint8_t **last_curso
     }
     else
     {
-        // the first character after timestamp must be space or table
+        // after reading, the first character must be space
         printf("format error, this buffer is not CAN frame!\n");
+        printf("total_len: %d, cursor: %d\n", total_len, **cursor);
         return total_len;
     }
     return left_len;
@@ -150,7 +168,6 @@ static CANAnalyzerState TransmitStateTo(CANAnalyzerState nextstate, CANAnalyzerI
 {
     StateHandlerFunc handler = statemap[nextstate];
     if (handler == NULL) {
-        /* 状态值在枚举范围内，但表里没填这一项——说明有状态漏注册了 */
         handler = statemap[CAN_ANALYZER_STATE_ERROR];
     }
     
@@ -181,10 +198,11 @@ static CANAnalyzerState IdleState(CANAnalyzerInfo *can_info, BufferMouse *mouse)
 
     if(((mouse->left_len >= 2) && ('/' == *mouse->cursor) && ('/' == *(mouse->cursor+1))) || ('#' == *mouse->cursor))
     {
-        printf("ignore comment.\n");
+        // printf("ignore comment.\n");
         return CAN_ANALYZER_STATE_ERROR;
     }
-
+    // default standard can
+    can_info->type = CAN_ANALYZER_TYPE_CLASSICAL_STANDARD;
     return CAN_ANALYZER_STATE_TIMESTAMP;
 }
 
@@ -195,7 +213,7 @@ static CANAnalyzerState TimestampState(CANAnalyzerInfo *can_info, BufferMouse *m
     mouse->ret_len = isCorrectFormatAndMoveBackward(&mouse->cursor, &mouse->last_cursor, mouse->left_len);
     if((mouse->ret_len <= 0) || (mouse->ret_len >= mouse->left_len))
     {
-        printf("move back failed!\n");
+        // printf("move back failed!\n");
         return CAN_ANALYZER_STATE_ERROR;
     }
     else
@@ -208,8 +226,19 @@ static CANAnalyzerState TimestampState(CANAnalyzerInfo *can_info, BufferMouse *m
 
 static CANAnalyzerState ChannelState(CANAnalyzerInfo *can_info, BufferMouse *mouse)
 {
-    // channel field    
-    can_info->channel = strtoul(mouse->last_cursor, (char**)&mouse->cursor, CAN_ANALYZER_DECIMAL);
+    // channel field
+    if(0 == strncmp(mouse->cursor, "CANFD", strlen("CANFD")))
+    {
+        can_info->type = CAN_ANALYZER_TYPE_CAN_FD_STANDARD;
+        mouse->cursor = mouse->cursor + strlen("CANFD");
+        mouse->last_cursor = mouse->cursor;
+        return CAN_ANALYZER_STATE_CHANNEL;
+    }
+    else
+    {
+        can_info->channel = strtoul(mouse->last_cursor, (char**)&mouse->cursor, CAN_ANALYZER_DECIMAL);
+    }
+
     mouse->ret_len = isCorrectFormatAndMoveBackward(&mouse->cursor, &mouse->last_cursor, mouse->left_len);
     if((mouse->ret_len <= 0) || (mouse->ret_len >= mouse->left_len))
     {
@@ -221,13 +250,44 @@ static CANAnalyzerState ChannelState(CANAnalyzerInfo *can_info, BufferMouse *mou
         mouse->left_len = mouse->ret_len;
     }
 
-    return CAN_ANALYZER_STATE_CANID;
+    // choose next state
+    if((can_info->type == CAN_ANALYZER_TYPE_CLASSICAL_STANDARD) || (can_info->type == CAN_ANALYZER_TYPE_CLASSICAL_EXTENDED))
+    {
+        return CAN_ANALYZER_STATE_CANID;
+    }
+    else if((can_info->type == CAN_ANALYZER_TYPE_CAN_FD_STANDARD) || (can_info->type == CAN_ANALYZER_TYPE_CAN_FD_EXTENDED))
+    {
+        return CAN_ANALYZER_STATE_TRANSDIRECTION;
+    }
+    else
+    {
+        return CAN_ANALYZER_STATE_ERROR;
+    }
+    
 }
 
 static CANAnalyzerState CANIDState(CANAnalyzerInfo *can_info, BufferMouse *mouse)
 {
     // CAN ID
     can_info->canid = strtoul(mouse->last_cursor, (char**)&mouse->cursor, CAN_ANALYZER_HEXADECIMAL);
+    if(('x' == *mouse->cursor) || ('X' == *mouse->cursor))
+    {
+        if(can_info->type == CAN_ANALYZER_TYPE_CLASSICAL_STANDARD)
+        {
+            can_info->type = CAN_ANALYZER_TYPE_CLASSICAL_EXTENDED;
+            mouse->cursor++;
+        }
+        else if(can_info->type == CAN_ANALYZER_TYPE_CAN_FD_STANDARD)
+        {
+            can_info->type = CAN_ANALYZER_TYPE_CAN_FD_EXTENDED;
+            mouse->cursor++;
+        }
+        else
+        {
+            printf("Format error!Unknown type with end 'x'\n");
+            return CAN_ANALYZER_STATE_ERROR;
+        }
+    }
     mouse->ret_len = isCorrectFormatAndMoveBackward(&mouse->cursor, &mouse->last_cursor, mouse->left_len);
     if((mouse->ret_len <= 0) || (mouse->ret_len >= mouse->left_len))
     {
@@ -238,8 +298,19 @@ static CANAnalyzerState CANIDState(CANAnalyzerInfo *can_info, BufferMouse *mouse
     {
         mouse->left_len = mouse->ret_len;
     }
-    
-    return CAN_ANALYZER_STATE_TRANSDIRECTION;
+
+    if ((can_info->type == CAN_ANALYZER_TYPE_CAN_FD_EXTENDED) || (can_info->type == CAN_ANALYZER_TYPE_CAN_FD_STANDARD))
+    {
+        return CAN_ANALYZER_STATE_BRS;
+    }
+    else if((can_info->type == CAN_ANALYZER_TYPE_CLASSICAL_EXTENDED) || (can_info->type == CAN_ANALYZER_TYPE_CLASSICAL_STANDARD))
+    {
+        return CAN_ANALYZER_STATE_TRANSDIRECTION;
+    }
+    else
+    {
+        return CAN_ANALYZER_STATE_ERROR;
+    }
 }
 
 static CANAnalyzerState TransDirectionState(CANAnalyzerInfo *can_info, BufferMouse *mouse)
@@ -271,7 +342,14 @@ static CANAnalyzerState TransDirectionState(CANAnalyzerInfo *can_info, BufferMou
         mouse->left_len = mouse->ret_len;
     }
 
-    return CAN_ANALYZER_STATE_RTRCHECK;
+    if (can_info->type == CAN_ANALYZER_TYPE_CAN_FD_STANDARD)
+    {
+        return CAN_ANALYZER_STATE_CANID;
+    }
+    else
+    {
+        return CAN_ANALYZER_STATE_RTRCHECK;
+    }
 }
 
 static CANAnalyzerState RTRCheckState(CANAnalyzerInfo *can_info, BufferMouse *mouse)
@@ -358,3 +436,44 @@ static CANAnalyzerState PayloadState(CANAnalyzerInfo *can_info, BufferMouse *mou
 
     return CAN_ANALYZER_STATE_FINISH;
 }
+
+static CANAnalyzerState BRSState(CANAnalyzerInfo *can_info, BufferMouse *mouse)
+{
+    printf("BRSState\n");
+    can_info->brs = strtoul(mouse->last_cursor, (char**)&mouse->cursor, CAN_ANALYZER_DECIMAL);
+
+    mouse->ret_len = isCorrectFormatAndMoveBackward(&mouse->cursor, &mouse->last_cursor, mouse->left_len);
+    if((mouse->ret_len <= 0) || (mouse->ret_len >= mouse->left_len))
+    {
+        printf("move back failed!\n");
+        return CAN_ANALYZER_STATE_ERROR;
+    }
+    else
+    {
+        mouse->left_len = mouse->ret_len;
+    }
+
+    return CAN_ANALYZER_STATE_ESI;
+
+}
+
+static CANAnalyzerState ESIState(CANAnalyzerInfo *can_info, BufferMouse *mouse)
+{
+    printf("ESIState\n");
+    can_info->esi = strtoul(mouse->last_cursor, (char**)&mouse->cursor, CAN_ANALYZER_DECIMAL);
+
+    mouse->ret_len = isCorrectFormatAndMoveBackward(&mouse->cursor, &mouse->last_cursor, mouse->left_len);
+    if((mouse->ret_len <= 0) || (mouse->ret_len >= mouse->left_len))
+    {
+        printf("move back failed!\n");
+        return CAN_ANALYZER_STATE_ERROR;
+    }
+    else
+    {
+        mouse->left_len = mouse->ret_len;
+    }
+
+    return CAN_ANALYZER_STATE_DLC;
+
+}
+

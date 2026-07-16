@@ -24,17 +24,19 @@ typedef enum _CANAnalayzerState_
     CAN_ANALYZER_STATE_RTRCHECK         = 0x06,
     CAN_ANALYZER_STATE_DLC              = 0x07,
     CAN_ANALYZER_STATE_PAYLOAD          = 0x08,
-    CAN_ANALYZER_STATE_FINISH           = 0x09,
+    CAN_ANALYZER_STATE_BRS              = 0x09, // CANFD
+    CAN_ANALYZER_STATE_ESI              = 0x0a, // CANFD
+    CAN_ANALYZER_STATE_FINISH                 ,
 
 }CANAnalyzerState;
 
 typedef CANAnalyzerState (*StateHandlerFunc)(CANAnalyzerInfo *can_info, BufferMouse *mouse);
-
-
+typedef void (*ResultCallBackFunc)(CANAnalyzerInfo can_info);
 
 
 // outside interface
 extern uint8_t wvdTransmitStateTo(CANAnalyzerState nextstate, CANAnalyzerInfo *can_info, BufferMouse *mouse);
+extern uint8_t setCANInfoCallBack(ResultCallBackFunc callback);
 
 
 /*   when the CANAnalyzerState is continuously, there's no need to make a table.
