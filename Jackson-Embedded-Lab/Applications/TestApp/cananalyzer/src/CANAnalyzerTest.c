@@ -88,9 +88,25 @@ void vdCANAnalyzeSocket()
 
 }
 
-void vdCANAnalyzeCommandLine()
+void vdCANAnalyzeCommandLine(void)
 {
+    char inBuffer[1024] = {0};
+    printf("Please input ASC format CAN Frame!\n");
 
+    while(NULL != fgets(inBuffer, sizeof(inBuffer), stdin))
+    {
+        if((0 == strncmp(inBuffer, "quit", strlen("quit"))) || (0 == strncmp(inBuffer, "q", strlen("q"))))
+        {
+            break;
+        }
+        else
+        {
+            vdCanFrameAnalyze(inBuffer, strlen(inBuffer));
+        }
+        printf("Please input ASC format CAN Frame!\n");
+    }
+
+    return;
 }
 
 void vdCANAnalyzeASCFile(char *path)
@@ -129,7 +145,7 @@ void vdCANAnalyzeASCFile(char *path)
 
 static struct option long_option[] = {
     {"path", required_argument, NULL, 'p'},
-    {"string", required_argument, NULL, 's'},
+    {"string", no_argument, NULL, 's'},
     // {"network", required_argument, NULL, 'n'},
 };
 
@@ -141,7 +157,7 @@ int main(int argc, char *argv[])
 
     vdCANAnalyzerInit(vdCANAnalyzerCallback);
 
-    while((opt = getopt_long(argc, argv, "p:s:h", long_option, NULL)) != -1)
+    while((opt = getopt_long(argc, argv, "p:sh", long_option, NULL)) != -1)
     {
         switch (opt)
         {
@@ -153,7 +169,7 @@ int main(int argc, char *argv[])
             }
             case 's':
             {
-                char *string = optarg;
+                vdCANAnalyzeCommandLine();
                 break;
             }
             case 'h':
@@ -161,8 +177,14 @@ int main(int argc, char *argv[])
                 printf("Usage: CanAnalyzerTest -p <filepath>/-s <asc format string>\n");
                 break;
             }
+            case '?':
+            {
+                printf("Usage: CanAnalyzerTest -p <filepath>/-s <asc format string>\n");
+                break;
+            }
             default:
             {
+                printf("Usage: CanAnalyzerTest -p <filepath>/-s <asc format string>\n");
                 break;
             }
         }
