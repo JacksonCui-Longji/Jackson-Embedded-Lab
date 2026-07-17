@@ -387,7 +387,7 @@ static CANAnalyzerState RTRCheckState(CANAnalyzerInfo *can_info, BufferMouse *mo
 static CANAnalyzerState DLCState(CANAnalyzerInfo *can_info, BufferMouse *mouse)
 {
     // DLC
-    can_info->dlc_len.dlc = strtoul(mouse->last_cursor, (char**)&mouse->cursor, CAN_ANALYZER_DECIMAL);
+    can_info->dlc_len.dlc = strtoul(mouse->last_cursor, (char**)&mouse->cursor, CAN_ANALYZER_HEXADECIMAL);
     mouse->ret_len = isCorrectFormatAndMoveBackward(&mouse->cursor, &mouse->last_cursor, mouse->left_len);
     if((mouse->ret_len <= 0) || (mouse->ret_len >= mouse->left_len))
     {
@@ -407,6 +407,31 @@ static CANAnalyzerState DLCState(CANAnalyzerInfo *can_info, BufferMouse *mouse)
         }
     }
 
+    if((CAN_ANALYZER_TYPE_CAN_FD_EXTENDED == can_info->type) || (CAN_ANALYZER_TYPE_CAN_FD_STANDARD == can_info->type))
+    {
+        // in CANFD, the bit is actual len in decimal, which should equal to decoded DLC.
+        int data_len = 0;
+        data_len = strtoul(mouse->last_cursor, (char**)&mouse->cursor, CAN_ANALYZER_DECIMAL);
+        
+        mouse->ret_len = isCorrectFormatAndMoveBackward(&mouse->cursor, &mouse->last_cursor, mouse->left_len);
+        if((mouse->ret_len <= 0) || (mouse->ret_len >= mouse->left_len))
+        {
+            printf("move back failed!\n");
+            return CAN_ANALYZER_STATE_ERROR;
+        }
+        else
+        {
+            if(data_len != can_info->dlc_len.length)
+            {
+                printf("CANID: %lx, frame error!DLC in CANFD can't match buffer length!\n",can_info->canid);
+                return CAN_ANALYZER_STATE_ERROR;
+            }
+            else
+            {
+                // frame correct, go to payload.
+            }
+        }
+    }
     return CAN_ANALYZER_STATE_PAYLOAD;
 }
 
@@ -439,7 +464,7 @@ static CANAnalyzerState PayloadState(CANAnalyzerInfo *can_info, BufferMouse *mou
 
 static CANAnalyzerState BRSState(CANAnalyzerInfo *can_info, BufferMouse *mouse)
 {
-    printf("BRSState\n");
+    // printf("BRSState\n");
     can_info->brs = strtoul(mouse->last_cursor, (char**)&mouse->cursor, CAN_ANALYZER_DECIMAL);
 
     mouse->ret_len = isCorrectFormatAndMoveBackward(&mouse->cursor, &mouse->last_cursor, mouse->left_len);
@@ -459,7 +484,7 @@ static CANAnalyzerState BRSState(CANAnalyzerInfo *can_info, BufferMouse *mouse)
 
 static CANAnalyzerState ESIState(CANAnalyzerInfo *can_info, BufferMouse *mouse)
 {
-    printf("ESIState\n");
+    // printf("ESIState\n");
     can_info->esi = strtoul(mouse->last_cursor, (char**)&mouse->cursor, CAN_ANALYZER_DECIMAL);
 
     mouse->ret_len = isCorrectFormatAndMoveBackward(&mouse->cursor, &mouse->last_cursor, mouse->left_len);
