@@ -37,7 +37,7 @@ typedef void (*ResultCallBackFunc)(CANAnalyzerInfo can_info);
 // outside interface
 extern uint8_t wvdTransmitStateTo(CANAnalyzerState nextstate, CANAnalyzerInfo *can_info, BufferMouse *mouse);
 extern uint8_t setCANInfoCallBack(ResultCallBackFunc callback);
-
+extern ResultCallBackFunc getCANInfoCallBack();
 
 /*   when the CANAnalyzerState is continuously, there's no need to make a table.
 typedef struct _CanAnalyzerStateMachineMap_

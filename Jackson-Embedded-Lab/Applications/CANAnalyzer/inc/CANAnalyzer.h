@@ -1,10 +1,6 @@
 #ifndef _CAN_ANALYZER_H_
 #define _CAN_ANALYZER_H_
 
-/* These two head files will be used to next improvment
-#include <linux/can.h>
-#include <linux/can/raw.h>
-*/
 #include "stdint.h"
 #include "stdio.h"
 

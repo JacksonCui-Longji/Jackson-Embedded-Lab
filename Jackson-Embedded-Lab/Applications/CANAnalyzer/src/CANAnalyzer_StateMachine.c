@@ -52,6 +52,11 @@ uint8_t setCANInfoCallBack(ResultCallBackFunc callback)
     callbackfunc = callback;
 }
 
+ResultCallBackFunc getCANInfoCallBack()
+{
+    return callbackfunc;
+}
+
 uint8_t wvdTransmitStateTo(CANAnalyzerState nextstate, CANAnalyzerInfo *can_info, BufferMouse *mouse)
 {
     if((NULL != can_info) && (NULL != mouse))
