@@ -83,9 +83,13 @@ void vdCANAnalyzerCallback(CANAnalyzerInfo can_info)
     printf("\n");
 }
 
-void vdCANAnalyzeSocket()
+void vdCANAnalyzeSocket(const char *ifname)
 {
-
+    if(NULL != ifname)
+    {
+        vdCANAnalyzeSocketCAN(ifname);
+    }
+    return;
 }
 
 void vdCANAnalyzeCommandLine(void)
@@ -146,7 +150,7 @@ void vdCANAnalyzeASCFile(char *path)
 static struct option long_option[] = {
     {"path", required_argument, NULL, 'p'},
     {"string", no_argument, NULL, 's'},
-    // {"network", required_argument, NULL, 'n'},
+    {"can", required_argument, NULL, 'c'},
 };
 
 int main(int argc, char *argv[])
@@ -157,7 +161,7 @@ int main(int argc, char *argv[])
 
     vdCANAnalyzerInit(vdCANAnalyzerCallback);
 
-    while((opt = getopt_long(argc, argv, "p:sh", long_option, NULL)) != -1)
+    while((opt = getopt_long(argc, argv, "c:p:sh", long_option, NULL)) != -1)
     {
         switch (opt)
         {
@@ -172,19 +176,29 @@ int main(int argc, char *argv[])
                 vdCANAnalyzeCommandLine();
                 break;
             }
+            case 'c':
+            {
+                char *device = optarg;
+                vdCANAnalyzeSocket(device);
+                break;
+            }
             case 'h':
             {
-                printf("Usage: CanAnalyzerTest -p <filepath>/-s <asc format string>\n");
+                printf("Usage: CanAnalyzerTest -p/s/c/h\n");
+                printf("        -h\n");
+                printf("        -p <filepath>\n");
+                printf("        -s <asc format string>\n");
+                printf("        -c <listen device name>\n");
                 break;
             }
             case '?':
             {
-                printf("Usage: CanAnalyzerTest -p <filepath>/-s <asc format string>\n");
+                printf("Usage: -h for help\n");
                 break;
             }
             default:
             {
-                printf("Usage: CanAnalyzerTest -p <filepath>/-s <asc format string>\n");
+                printf("Usage: -h for help\n");
                 break;
             }
         }

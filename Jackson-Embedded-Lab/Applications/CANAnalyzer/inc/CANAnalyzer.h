@@ -59,6 +59,8 @@ extern void vdCANAnalyzeFile(uint8_t *path, size_t path_len);
 
 extern void vdCanFrameAnalyze(uint8_t *frame, int len);
 
+extern void vdCANAnalyzeSocketCAN(const char *ifname);
+
 
 // detect  CAN ID type: Standard ID / Extended ID / 
 

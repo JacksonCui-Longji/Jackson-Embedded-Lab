@@ -97,6 +97,33 @@ uint8_t CANSocketToCANInfo(struct can_frame *frame, CANAnalyzerInfo *info)
     return RET_OK;
 }
 
+static uint8_t CANFDSocketToCANInfo(struct canfd_frame *frame, CANAnalyzerInfo *info)
+{
+    if ((NULL == frame) || (NULL == info)) 
+    {
+        return RET_NG;
+    }
+
+    memset(info, 0x00, sizeof(CANAnalyzerInfo));
+
+    uint8_t is_extended = (frame->can_id & CAN_EFF_FLAG) ? 1 : 0;
+    info->canid = frame->can_id & (is_extended ? CAN_EFF_MASK : CAN_SFF_MASK);
+
+    info->rtr = CAN_ANALYZER_DATA_BIT; // no concept of rtr in CANFD, so permanent data bit.
+
+    info->type = is_extended ? CAN_ANALYZER_TYPE_CAN_FD_EXTENDED : CAN_ANALYZER_TYPE_CAN_FD_STANDARD;
+
+    info->dlc_len.length = frame->len;
+
+    info->brs = (frame->flags & CANFD_BRS) ? 1 : 0;
+    info->esi = (frame->flags & CANFD_ESI) ? 1 : 0;
+
+    memcpy(info->payload, frame->data, frame->len);
+    info->direction = CAN_ANALYZER_RX;
+
+    return 1;
+}
+
 void vdCANAnalyzeSocketCAN(const char *ifname)
 {
     if(NULL == ifname)
@@ -133,12 +160,20 @@ void vdCANAnalyzeSocketCAN(const char *ifname)
         close(sock_fd);
         return;
     }
-
+    
+    int enable_fd = 1;
+    if(setsockopt(sock_fd, SOL_CAN_RAW, CAN_RAW_FD_FRAMES, &enable_fd, sizeof(enable_fd)))
+    {
+        perror("setsockopt CAN_RAW_FD_FRAMES");
+        close(sock_fd);
+        return;
+    }
+    
     printf("Listening on %s ... (Ctrl+C to stop)\n", ifname);
 
-    struct can_frame frame;
+    struct canfd_frame frame;
     CANAnalyzerInfo can_info;
-
+    
     while(1)
     {
         ssize_t nbytes = read(sock_fd, &frame, sizeof(frame));
@@ -147,24 +182,28 @@ void vdCANAnalyzeSocketCAN(const char *ifname)
             perror("read");
             break;
         }
-        if(nbytes < (ssize_t)sizeof(struct can_frame))
+        if (nbytes == CAN_MTU)
         {
-            printf("Incomplete CAN frame received!\n");
-            continue;
+            struct can_frame *classic = (struct can_frame *)&frame;
+            ResultCallBackFunc callback = getCANInfoCallBack();
+            if((RET_OK == CANSocketToCANInfo(classic, &can_info)) && (NULL != callback))
+            {
+                callback(can_info);
+            }
         }
-
-        if(CANSocketToCANInfo(&frame, &can_info))
+        else if (nbytes == CANFD_MTU)
         {
-            ResultCallBackFunc func = NULL;
-            func = getCANInfoCallBack();
-            if(NULL != func)
+            ResultCallBackFunc callback = getCANInfoCallBack();
+            if((RET_OK == CANFDSocketToCANInfo(&frame, &can_info)) && (NULL != callback))
             {
-                func(can_info);
+                callback(can_info);
             }
-            else
-            {
-                perror("callback");
-            }
+
+        }
+        else
+        {
+            printf("Unexpected frame size: %zd\n", nbytes);
+            continue;
         }
     }
     close(sock_fd);
