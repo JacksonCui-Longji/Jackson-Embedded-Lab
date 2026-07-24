@@ -12,9 +12,9 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-CORE_KO="${SCRIPT_DIR}/spi_virtual_master/core/spi_ctrl_core.ko"
-BACKEND_KO="${SCRIPT_DIR}/spi_virtual_master/backend/backend_virtual.ko"
-SLAVE_KO="${SCRIPT_DIR}/spi_virtual_slave/spi_virtual_slave.ko"
+CORE_KO="${SCRIPT_DIR}/build/spi_virtual_master/core/spi_ctrl_core.ko"
+BACKEND_KO="${SCRIPT_DIR}/build/spi_virtual_master/backend/backend_virtual.ko"
+SLAVE_KO="${SCRIPT_DIR}/build/spi_virtual_slave/spi_virtual_slave.ko"
 
 do_load() {
     for ko in "${CORE_KO}" "${BACKEND_KO}" "${SLAVE_KO}"; do
