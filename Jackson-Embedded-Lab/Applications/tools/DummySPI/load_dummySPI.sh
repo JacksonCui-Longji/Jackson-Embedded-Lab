@@ -28,6 +28,10 @@ do_load() {
     echo "==> insmod ${SLAVE_KO}"
     sudo insmod "${SLAVE_KO}"
 
+    echo "==> Binding spidev driver to spi0.0"
+    echo spidev | sudo tee /sys/bus/spi/devices/spi0.0/driver_override > /dev/null
+    echo spi0.0 | sudo tee /sys/bus/spi/drivers/spidev/bind > /dev/null
+
     echo "==> Loaded. Checking /dev/spidev0.0 ..."
     if [[ -e /dev/spidev0.0 ]]; then
         echo "    /dev/spidev0.0 exists."
