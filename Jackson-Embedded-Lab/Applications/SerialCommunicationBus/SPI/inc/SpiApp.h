@@ -3,6 +3,9 @@
 
 #include <stdint.h>
 #include <stdio.h>
+#include <stddef.h>   /* size_t */
+
+#define SPI_MAX_LEN         (128 + 1)   /* 1 命令字节 + 最多 128 个寄存器 */
 
 typedef void (*SpiAppCallback)(uint8_t ret, uint8_t *rx_data, size_t len, void *user_ctx);
 

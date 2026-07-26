@@ -10,7 +10,6 @@
 #include "SpiApp.h"
 
 #define SVPI_READ_MASK      (1 << 7)
-#define SPI_MAX_LEN         (128 + 1)   /* 1 命令字节 + 最多 128 个寄存器 */
 #define SPI_REQ_QUEUE_DEPTH 8U
 
 typedef enum
@@ -27,9 +26,10 @@ typedef struct
     void        *user_ctx;
 } SpiRequest_t;
 
-static int             g_fd = -1;
-static pthread_t       g_worker_thread;
-static SpiAppCallback  g_callback = NULL;
+static int              g_fd = -1;
+static pthread_t        g_worker_thread;
+static uint8_t          g_initialized = 0U;
+static SpiAppCallback   g_callback = NULL;
 static volatile uint8_t g_thread_stop = 0U;
 
 static SpiRequest_t     g_req_queue[SPI_REQ_QUEUE_DEPTH];
@@ -37,6 +37,7 @@ static size_t           g_queue_head  = 0U;   /* 下一个要出队的位置 */
 static size_t           g_queue_tail  = 0U;   /* 下一个空闲入队位置 */
 static size_t           g_queue_count = 0U;
 static pthread_mutex_t  g_queue_lock  = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t  g_init_lock = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t   g_queue_cond  = PTHREAD_COND_INITIALIZER;
 
 static uint8_t u8SpiAppxfer(int fd, uint8_t *tx, uint8_t *rx, size_t tx_rx_len)
@@ -202,10 +203,19 @@ uint8_t wu8SpiAppReadMessage(uint8_t *tx_data, size_t tx_len, void *user_ctx)
 
 uint8_t u8InitSpiApp(SpiAppCallback callback)
 {
+    pthread_mutex_lock(&g_init_lock);
+    if (g_initialized)
+    {
+        pthread_mutex_unlock(&g_init_lock);
+        printf("SpiApp already initialized.\n");
+        return RET_NG;
+    }
+
     g_fd = open("/dev/spidev0.0", O_RDWR);
     if (0 > g_fd)
     {
         perror("open");
+        pthread_mutex_unlock(&g_init_lock);
         return RET_NG;
     }
 
@@ -220,14 +230,24 @@ uint8_t u8InitSpiApp(SpiAppCallback callback)
         perror("pthread_create");
         close(g_fd);
         g_fd = -1;
+        pthread_mutex_unlock(&g_init_lock);
         return RET_NG;
     }
 
+    g_initialized = 1U;
+    pthread_mutex_unlock(&g_init_lock);
     return RET_OK;
 }
 
 uint8_t u8DeinitSpiApp(void)
 {
+    pthread_mutex_lock(&g_init_lock);
+    if (!g_initialized)
+    {
+        pthread_mutex_unlock(&g_init_lock);
+        return RET_NG;
+    }
+
     pthread_mutex_lock(&g_queue_lock);
     g_thread_stop = 1U;
     pthread_cond_signal(&g_queue_cond);
@@ -238,6 +258,8 @@ uint8_t u8DeinitSpiApp(void)
     close(g_fd);
     g_fd = -1;
     g_callback = NULL;
+    g_initialized = 0U;
 
+    pthread_mutex_unlock(&g_init_lock);
     return RET_OK;
 }
